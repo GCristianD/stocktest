@@ -88,7 +88,7 @@ def make_charts(df, ticker):
     return fig
 
 def makefig_squeeze(df,ticker):    
-    fig = make_subplots(rows=4, cols=1, vertical_spacing=0.005, shared_xaxes=True, row_heights=[0.6, 0.1,0.1,0.6])
+    fig = make_subplots(rows=4, cols=1, vertical_spacing=0.012, subplot_titles=(ticker,"TTM Squeeze indicator","Stochastic Oscillator","Kelner channels"), shared_xaxes=True, row_heights=[0.6, 0.1,0.1,0.6])
 
     fig.add_trace(go.Candlestick(x=df['Date'],
                 open=df['Open'],
@@ -131,8 +131,6 @@ def makefig_squeeze(df,ticker):
     
     fig.update_layout(height=1600) 
 
-    fig.update_layout(
-        title_text=ticker)
 
     fig.update_layout(
         xaxis=dict(
