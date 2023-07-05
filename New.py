@@ -3,7 +3,13 @@ import pandas as pd
 import numpy
 from datetime import datetime
 import pickle
-from makefigures import make_charts, makefig_squeeze
+from makefigures import make_charts, makefig_squeeze, maketotfig, make_spy_fig, make_vix_fig, make_dxy_fig, colorsect
+import os
+
+# Remove these later, after the figure functions are moved in another file:
+import plotly.express as px
+import plotly.graph_objects as go
+
 
 st.set_page_config(page_title='Stock scan', page_icon=':bar_chart:',layout="wide")
 
@@ -55,7 +61,7 @@ def displayStockListoptions(lastday):
         with c22:
             st.write('')
             st.write('')
-            st.write('Last trading day data: '+ lastday)
+            st.caption('Last trading day data: '+ lastday)
 
     caps_dic, capslist = {'Mega-cap':'Mega','Large-cap':'Large','Mid-cap':'Mid','Small-cap':'Small'}, []
     for opt in ['Mega-cap','Large-cap','Mid-cap','Small-cap']:
@@ -86,7 +92,29 @@ def createTables():
 
     return rez[0], rez[1], rez[2], rez[3],  rez[4], rez[5], rez[6], rez[7], rez[8], rez[9], rez[10], rez[11], rez[12], rez[13], rez[14], rez[15], rez[16]
 
+@st.cache_data
+def loadEarnings():
+    path = 'Earnings Q2 2023.xlsx'
+    if os.path.isfile(path):
+        de = pd.read_excel('Earnings Q2 2023.xlsx')
+        de = de[['Ticker','Earnings Date']]
+        de.drop(labels=0, inplace=True)
+        return de
 
+@st.cache_data
+def loadExtras():
+    path = 'extras.pickle'
+    with open(path, 'rb') as handle:
+        rez = pickle.load(handle)
+    return rez[0]
+
+#@st.cache_data
+def loadMktInt():
+    path = 'mktint.pickle'
+    with open(path, 'rb') as handle:
+        rez = pickle.load(handle)
+    return rez[0], rez[1], rez[2], rez[3], rez[4], rez[5], rez[6] 
+    
 #################################
 #################################
 #################################
@@ -99,6 +127,16 @@ dic_scaned = loadPrices()
 dbear, dbull, dbull200, dbear200,   dsqfilt2_bull, dsqfilt3_bull, dsqfilt_bear, \
 d_bullsetup_bulltrend_conservative, d_bullsetup_beartrend_conservative, d_bearsetup_bulltrend_conservative, d_bearsetup_beartrend_conservative, \
 d_bullsetup_bulltrend_aggresive, d_bullsetup_beartrend_aggresive, d_bearsetup_bulltrend_aggresive, d_bearsetup_beartrend_aggresive, df_sectors, lastday = createTables()
+
+#Load earnings
+de = loadEarnings()
+
+#Load exras
+dicSectorsfig = loadExtras()
+
+#Load market internals
+dftot, dvug, ddd, dm, dyvix, dl, tableInt = loadMktInt()
+
 
 
 #Display Stock Universe options
@@ -154,7 +192,7 @@ if not nonUS:
 
 
 # Make tabs
-BounceScan, Bounce200, SqueezeScan, CountertrendScan  = st.tabs(['Bounce scan','Bounce 200', 'Squeezes', 'Countertrend scan'])
+BounceScan, Bounce200,  Earningsscan, SqueezeScan, CountertrendScan,  MktInt, Sectors  = st.tabs(['Bounce scan','Bounce 200', 'Earnings', 'Squeezes', 'Countertrend scan \u2001 \u2001 \u2001 \u2001 \u2001 \u2001 \u2001 \u2001 \u2001', "\u2001 \u2001 \u2001 \u2001 \u2001 \u2001 \u2001 \u2001 \u2001 Market internals",'Sectors'])
 
 with BounceScan:
     Bullishscan, Bearishscan = st.tabs(['Bullish scan','Bearish scan'])
@@ -230,13 +268,17 @@ with Bounce200:
                 fig = make_charts(df,ticker) 
                 st.plotly_chart(fig,theme=None, use_container_width=True)
 
+with Earningsscan:
+    st.dataframe(de, use_container_width=False)
+    #st.table(de)
                                       
 with SqueezeScan:
     Bullishsqueeze, Bearishsqueeze = st.tabs(['Bullish squeeze','Bearish squeeze'])
     with Bullishsqueeze:
-        st.caption('In squeeze, \u2001 8 EMA > 34 EMA, \u2001 Price within 10% of 52w high, \u2001 Squeeze momentum histogram > was 2 bars ago \u2001 and weekly: ADX ≥ 20, DI+ > DI- ')
-        st.table(dsqfilt2_bull[['Symbol','Squeeze days','Wkl ADX','Wkl DI±','Wkl 10S> 34E','Wkl sq fired','ATRs vs mean','% of 52w high','Bull Rainow %',  #'Days to earnings',
+        st.caption('In squeeze, \u2001 8 EMA > 34 EMA, \u2001 Price within 10% of 52w high, \u2001 Squeeze momentum histogram > was 2 bars ago \u2001 and weekly: both ADX ≥ 20 & DI+ > DI- ')
+        st.table(dsqfilt2_bull[['Symbol','Squeeze days','Wkl 10S> 34E','Wkl sq fired','ATRs vs mean','% of 52w high','Bull Rainow %',  #'Days to earnings',
                                 'Cap','Sector','Sector LT','Sector ST','Loc']].style.format({'ATRs vs mean': "{:.2f}",'Bull Rainow %': "{:.2f}", 'Bull Rainow All %': "{:.2f}" }))
+        st.caption('Weekly conditions relaxed:')
         st.table(dsqfilt3_bull[['Symbol','Squeeze days','Wkl ADX','Wkl DI±','Wkl 10S> 34E','Wkl sq fired','ATRs vs mean','% of 52w high','Bull Rainow %', # 'Days to earnings',
                                 'Cap','Sector','Sector LT','Sector ST','Loc']].style.format({'ATRs vs mean': "{:.2f}",'Bull Rainow %': "{:.0f}", 'Bull Rainow All %': "{:.2f}" }))
 
@@ -317,5 +359,73 @@ with CountertrendScan:
             st.caption('**Bear trend:**   Price < 200 SMA')
             st.caption('New 21-day high. Wilder RSI(13) > 70')
             st.table(d_bearsetup_beartrend_aggresive[['Symbol','Cap','Sector','Loc']])
+
+
+with MktInt:
+    #st.write('')
+    #st.markdown(tableInt.style.hide(axis="index").hide_columns().to_html(), unsafe_allow_html=True)
+
+    clm1, clm2, clm3 = st.columns(3)
+
+    with clm2:
+        st.dataframe(tableInt)
+
+    bigpicture, sptab, liqtab, vixtab, skewtab, pctab, dxytab, rottab  = st.tabs(['Big picture','S&P 500', 'Liquidity', 'VIX', 'SKEW', 'PC ratio', 'DXY','VUG/VTV', ])
+
+    with bigpicture:
+        fig = maketotfig(dftot.iloc[150:])
+        st.plotly_chart(fig,theme=None, use_container_width=True)
+
+    with liqtab:
+        st.write('S&P 500 and Liquidity starting from 0 since 2021-03-17. \u2001 Liquidity = Federal Reserve balance sheet - Treasury TGA balance - Reverse repo agreements')
+        st.caption("Weeklydata from FRED economic data - St. Louis Fed")
+
+        fig = px.line(dl[['liq','SP norm']])
+        st.plotly_chart(fig,theme=None, use_container_width=True)
         
+
+    with sptab:
+        fig = make_spy_fig(dm[200:])
+        st.plotly_chart( fig, theme=None, use_container_width=True)
+
+    with vixtab:
+        fig = make_vix_fig(dyvix)
+        st.plotly_chart(fig, theme=None, use_container_width=True)
+
+    with skewtab:
+        fig = px.line(x=dftot.index, y=dftot['SKEW'], title = 'CBOE SKEW Index')
+        fig.add_hline(y=135, line_width=2,  line_color="red", name='135')
+        fig.add_hline(y=115, line_width=2,  line_color="green", name='115')
+        fig.update_layout(xaxis_title = '', yaxis_title="SKEW")
+        st.plotly_chart(fig,theme=None, use_container_width=True)
+        
+    with pctab:
+        st.caption("Daily total data from the Options Clearing Corporation")
+        
+        fig = px.line(dftot['PC_SMA10'], title = 'Put Call ratio 10 day simple moving average')
+        fig.add_hline(y=0.8, line_width=2,  line_color="red", name='0.8')
+        fig.add_hline(y=1, line_width=2,  line_color="green", name='1')
+        st.plotly_chart(fig,theme=None, use_container_width=True)
+        
+    with dxytab:
+        fig = make_dxy_fig(ddd)
+        st.plotly_chart( fig, theme=None, use_container_width=True)
+                         
+    with rottab:
+        fig = px.line(dvug['VUG/VTV'], title = 'Growth VUG/ value VTV')
+        st.plotly_chart(fig,theme=None, use_container_width=True)
+        
+    
+
+with Sectors:
+    st.table(df_sectors.style.applymap(colorsect))
+
+    symbols = list(df_sectors['Index'])
+    tabs = st.tabs(symbols)
+
+    for i in range(0,len(symbols)):
+        with tabs[i]:
+            st.plotly_chart(dicSectorsfig[symbols[i]],theme=None, use_container_width=True)
+
+    
     
