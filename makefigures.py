@@ -257,7 +257,7 @@ def make_vix_fig(dyvix):
 
 def make_dxy_fig(ddd):
     fig = go.Figure()
-    fig.add_trace(go.Candlestick(x=ddd['Date'],
+    fig.add_trace(go.Candlestick(x=ddd.index,
             open=ddd['Open'],
             high=ddd['High'],
             low=ddd['Low'],
